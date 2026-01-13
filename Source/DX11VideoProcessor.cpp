@@ -3165,7 +3165,7 @@ HRESULT CDX11VideoProcessor::Render(int field, const REFERENCE_TIME frameStartTi
 		hr = m_pDXGIOutput->WaitForVBlank();
 		DLogIf(FAILED(hr), L"WaitForVBlank failed with error {}", HR2Str(hr));
 	}
-
+	
 	if (m_bAdjustPresentTime) {
 		SyncFrameToStreamTime(frameStartTime);
 	}
@@ -3719,6 +3719,10 @@ HRESULT CDX11VideoProcessor::Process(ID3D11Texture2D* pRenderTarget, const CRect
 		}
 
 		if (rSrc != dstRect || rotation != 0) {
+			if (!pInputTexture || !pRT) {
+				ASSERT(false);
+				return E_FAIL;
+			}
 			hr = ResizeShaderPass(*pInputTexture, pRT, rSrc, dstRect, rotation);
 		} else {
 			pTex = pInputTexture; // Hmm
@@ -3726,6 +3730,10 @@ HRESULT CDX11VideoProcessor::Process(ID3D11Texture2D* pRenderTarget, const CRect
 
 		if (m_pPSCorrection) {
 			StepSetting();
+			if (!pInputTexture || !pRT) {
+				ASSERT(false);
+				return E_FAIL;
+			}
 			const bool bMeasured = m_bSdrMeasureActive && MeasureHdrPeak(*pInputTexture, rect) == S_OK;
 			if (bMeasured) {
 				m_pDeviceContext->PSSetShaderResources(1, 1, &m_pHdrStateSRV.p);
@@ -3740,7 +3748,10 @@ HRESULT CDX11VideoProcessor::Process(ID3D11Texture2D* pRenderTarget, const CRect
 
 		if (m_pPSHDR10ToneMapping) {
 			StepSetting();
-
+			if (!pInputTexture || !pRT) {
+				ASSERT(false);
+				return E_FAIL;
+			}
 			if (m_pDoViDynamicConstants) {
 				m_pDeviceContext->PSSetConstantBuffers(1, 1, &m_pDoViDynamicConstants.p);
 			}
@@ -3778,7 +3789,11 @@ HRESULT CDX11VideoProcessor::Process(ID3D11Texture2D* pRenderTarget, const CRect
 
 			for (UINT idx = 0; idx < m_pPostScaleShaders.size(); idx++) {
 				StepSetting();
-				hr = TextureCopyRect(*pInputTexture, pRT, rect, rect, m_pPostScaleShaders[idx].shader, m_pPostScaleConstants, 0, false);
+				if (pInputTexture && pRT) {
+					hr = TextureCopyRect(*pInputTexture, pRT, rect, rect, m_pPostScaleShaders[idx].shader, m_pPostScaleConstants, 0, false);
+				} else {
+					ASSERT(false);
+				}
 			}
 		}
 
@@ -3801,6 +3816,10 @@ HRESULT CDX11VideoProcessor::Process(ID3D11Texture2D* pRenderTarget, const CRect
 
 		if (m_bFinalPass) {
 			StepSetting();
+			if (!pTex || !pRT) {
+				ASSERT(false);
+				return E_FAIL;
+			}
 			hr = FinalPass(*pTex, pRT, rect, rect);
 			m_bDitherUsed = true;
 		}
