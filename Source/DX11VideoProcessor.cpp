@@ -842,11 +842,19 @@ void CDX11VideoProcessor::SetShaderConvertColorParams()
 	if (m_Dovi.bValid) {
 		const float brightness = DXVA2FixedToFloat(m_DXVA2ProcAmpValues.Brightness) / 255;
 		const float contrast   = DXVA2FixedToFloat(m_DXVA2ProcAmpValues.Contrast);
+		const float hue        = DXVA2FixedToFloat(m_DXVA2ProcAmpValues.Hue) / 180 * acos(-1);
+		const float saturation = DXVA2FixedToFloat(m_DXVA2ProcAmpValues.Saturation);
+		// Hue rotates the chroma subvector, saturation scales it (same as mp_get_csp_matrix)
+		const float huecos = saturation * cos(hue);
+		const float huesin = saturation * sin(hue);
 
 		for (int i = 0; i < 3; i++) {
-			cmatrix.m[i][0] = (float)m_Dovi.msd.ColorMetadata.ycc_to_rgb_matrix[i * 3 + 0] * contrast;
-			cmatrix.m[i][1] = (float)m_Dovi.msd.ColorMetadata.ycc_to_rgb_matrix[i * 3 + 1] * contrast;
-			cmatrix.m[i][2] = (float)m_Dovi.msd.ColorMetadata.ycc_to_rgb_matrix[i * 3 + 2] * contrast;
+			const float y = (float)m_Dovi.msd.ColorMetadata.ycc_to_rgb_matrix[i * 3 + 0];
+			const float u = (float)m_Dovi.msd.ColorMetadata.ycc_to_rgb_matrix[i * 3 + 1];
+			const float v = (float)m_Dovi.msd.ColorMetadata.ycc_to_rgb_matrix[i * 3 + 2];
+			cmatrix.m[i][0] = y * contrast;
+			cmatrix.m[i][1] = (huecos * u - huesin * v) * contrast;
+			cmatrix.m[i][2] = (huesin * u + huecos * v) * contrast;
 		}
 
 		for (int i = 0; i < 3; i++) {
